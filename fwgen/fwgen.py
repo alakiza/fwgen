@@ -55,11 +55,14 @@ class Ruleset(object):
 
     def _apply(self, rules):
         data = '%s\n' % '\n'.join(rules)
-        p = subprocess.Popen(self.restore_cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE,
-                             universal_newlines=True)
-        stderr = p.communicate(data)[1]
-        if p.returncode != 0:
-            raise RulesetError(stderr)
+        #print(self.restore_cmd)
+        #print(data)
+        if self.restore_cmd != [None]:
+            p = subprocess.Popen(self.restore_cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE,
+                                 universal_newlines=True)
+            stderr = p.communicate(data)[1]
+            if p.returncode != 0:
+                raise RulesetError(stderr)
 
     def restore(self, path=None):
         path = path or self.restore_file
@@ -76,23 +79,29 @@ class Ruleset(object):
         self._save(path)
 
     def _save(self, path):
-        try:
-            path.parent.mkdir(parents=True)
-        except FileExistsError:
-            pass
+        #print("Save cmd", self.save_cmd)
+        if self.save_cmd != [None]:
+            try:
+                path.parent.mkdir(parents=True)
+            except FileExistsError:
+                pass
 
-        tmp = path.parent / Path(str(path.name) + '.tmp')
-        LOGGER.debug("Running command '%s > %s'", ' '.join(self.save_cmd), tmp)
-        with os.fdopen(os.open(str(tmp), os.O_WRONLY | os.O_CREAT, 0o600), 'wb') as f:
-            subprocess.check_call(self.save_cmd, stdout=f)
+            tmp = path.parent / Path(str(path.name) + '.tmp')
+            LOGGER.debug("Running command '%s > %s'", ' '.join(self.save_cmd), tmp)
+            with os.fdopen(os.open(str(tmp), os.O_WRONLY | os.O_CREAT, 0o600), 'wb') as f:
+                subprocess.check_call(self.save_cmd, stdout=f)
 
-        LOGGER.debug("Renaming '%s' to '%s'", tmp, path)
-        tmp.rename(path)
-        self.restore_file = path
+            LOGGER.debug("Renaming '%s' to '%s'", tmp, path)
+            tmp.rename(path)
+            self.restore_file = path
 
     def running(self):
-        output = run_command(self.save_cmd)
-        return output.splitlines()
+        #print("Save cmd", self.save_cmd)
+        if self.save_cmd!= [None]:
+            output = run_command(self.save_cmd)
+            return output.splitlines()
+        else:
+            return ""
 
     @staticmethod
     def _diff_filter(diff):
@@ -424,8 +433,13 @@ class FwGen(object):
             create_cmd = ['create %s %s' % (ipset, params['type'])]
             create_cmd.append(params.get('options', None))
             output.append(' '.join([i for i in create_cmd if i]))
-            for entry in params['entries']:
-                output.extend(self._expand_objects('add %s %s' % (ipset, entry), ruletype='ipset'))
+            try:
+                for entry in params['entries']:
+                #print(params)
+                    #print(entry)
+                    output.extend(self._expand_objects('add %s %s' % (ipset, entry), ruletype='ipset'))
+            except Exception as e:
+                print(e)
         return output
 
     def _get_policy_rules(self):
